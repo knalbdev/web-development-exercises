@@ -1,5 +1,6 @@
 const books = [];
 const STORAGE_KEY = 'BOOKSHELF_APPS';
+const DARK_MODE_KEY = 'DARK_MODE_ACTIVE';
 
 function isStorageExist() {
   if (typeof Storage === 'undefined') {
@@ -48,8 +49,11 @@ function loadDataFromStorage() {
   document.dispatchEvent(new Event('ondataloaded'));
 }
 
-function showNotification(message) {
-  alert(message); 
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
 function makeBookElement(book) {
@@ -74,17 +78,35 @@ function makeBookElement(book) {
   const toggleButton = document.createElement('button');
   toggleButton.setAttribute('data-testid', 'bookItemIsCompleteButton');
   toggleButton.innerText = book.isComplete ? 'Belum selesai dibaca' : 'Selesai dibaca';
-  toggleButton.addEventListener('click', () => toggleBook(book.id));
+  toggleButton.addEventListener('click', () => {
+    toggleBook(book.id);
+    showToast('Status buku diperbarui.');
+  });
 
   const deleteButton = document.createElement('button');
   deleteButton.setAttribute('data-testid', 'bookItemDeleteButton');
   deleteButton.innerText = 'Hapus Buku';
-  deleteButton.addEventListener('click', () => deleteBook(book.id));
+  deleteButton.addEventListener('click', () => {
+    deleteBook(book.id);
+    showToast('Buku dihapus dari rak.');
+  });
 
   const editButton = document.createElement('button');
   editButton.setAttribute('data-testid', 'bookItemEditButton');
   editButton.innerText = 'Edit Buku';
-  editButton.addEventListener('click', () => editBook(book.id));
+  editButton.addEventListener('click', () => {
+    const newTitle = prompt('Edit Judul Buku', book.title);
+    const newAuthor = prompt('Edit Penulis Buku', book.author);
+    const newYear = prompt('Edit Tahun Terbit Buku', book.year);
+    if (newTitle && newAuthor && newYear) {
+      book.title = newTitle;
+      book.author = newAuthor;
+      book.year = Number(newYear);
+      saveData();
+      refreshBookList();
+      showToast('Buku berhasil diperbarui.');
+    }
+  });
 
   actions.append(toggleButton, deleteButton, editButton);
   bookContainer.append(title, author, year, actions);
@@ -116,7 +138,6 @@ function toggleBook(bookId) {
   book.isComplete = !book.isComplete;
   saveData();
   refreshBookList();
-  showNotification('Status buku berhasil diperbarui!');
 }
 
 function deleteBook(bookId) {
@@ -125,29 +146,41 @@ function deleteBook(bookId) {
     books.splice(index, 1);
     saveData();
     refreshBookList();
-    showNotification('Buku berhasil dihapus!');
   }
 }
 
-function editBook(bookId) {
-  const book = findBook(bookId);
-  if (!book) return;
-
-  const newTitle = prompt('Edit Judul:', book.title);
-  const newAuthor = prompt('Edit Penulis:', book.author);
-  const newYear = prompt('Edit Tahun:', book.year);
-
-  if (newTitle && newAuthor && newYear) {
-    book.title = newTitle;
-    book.author = newAuthor;
-    book.year = Number(newYear);
-    saveData();
-    refreshBookList();
-    showNotification('Data buku berhasil diperbarui!');
+function applySavedTheme() {
+  const saved = localStorage.getItem(DARK_MODE_KEY);
+  if (saved === 'true') {
+    document.body.classList.add('dark');
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  applySavedTheme();
+
+  const toggleButton = document.createElement('button');
+  toggleButton.innerHTML = document.body.classList.contains('dark') ? '☀️' : '🌙';
+  toggleButton.style.position = 'fixed';
+  toggleButton.style.top = '20px';
+  toggleButton.style.right = '20px';
+  toggleButton.style.zIndex = '1001';
+  toggleButton.style.backgroundColor = '#5A8DF7';
+  toggleButton.style.color = '#fff';
+  toggleButton.style.border = 'none';
+  toggleButton.style.padding = '0.5rem 1rem';
+  toggleButton.style.borderRadius = '4px';
+  toggleButton.style.cursor = 'pointer';
+
+  document.body.appendChild(toggleButton);
+
+  toggleButton.addEventListener('click', () => {
+    const isDark = document.body.classList.toggle('dark');
+    localStorage.setItem(DARK_MODE_KEY, isDark);
+    toggleButton.innerHTML = isDark ? '☀️' : '🌙';
+    showToast(isDark ? 'Dark mode aktif' : 'Light mode aktif');
+  });
+
   const submitForm = document.getElementById('bookForm');
   const searchForm = document.getElementById('searchBook');
 
@@ -163,17 +196,17 @@ document.addEventListener('DOMContentLoaded', () => {
     books.push(newBook);
     saveData();
     refreshBookList();
+    showToast('Buku berhasil ditambahkan.');
     submitForm.reset();
-    showNotification('Buku berhasil ditambahkan!');
   });
 
   searchForm.addEventListener('submit', e => {
     e.preventDefault();
     const query = document.getElementById('searchBookTitle').value.toLowerCase();
-    const bookItems = document.querySelectorAll('[data-testid="bookItem"]');
+    const bookItems = document.querySelectorAll('[data-testid=\"bookItem\"]');
 
     bookItems.forEach(item => {
-      const title = item.querySelector('[data-testid="bookItemTitle"]').innerText.toLowerCase();
+      const title = item.querySelector('[data-testid=\"bookItemTitle\"]').innerText.toLowerCase();
       item.style.display = title.includes(query) ? '' : 'none';
     });
   });
